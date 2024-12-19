@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 #SBATCH --job-name=train_vq_vae
 #SBATCH --output=output_slurm/eval_log.txt
 #SBATCH --error=output_slurm/eval_error.txt
@@ -9,7 +9,7 @@
 #SBATCH --mem=180g
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
-#SBATCH --time=00:30:00
+#SBATCH --time=03:30:00
 #SBATCH --account=shdpm0
 ##### END preamble
 
