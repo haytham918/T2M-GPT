@@ -9,28 +9,34 @@
 #SBATCH --mem=180g
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
-#SBATCH --time=14:30:00
+#SBATCH --time=96:30:00
 #SBATCH --account=shdpm0
 ##### END preamble
-
-# module load cuda/12.3.0
 
 source /sw/pkgs/arc/python3.10-anaconda/2023.03/etc/profile.d/conda.sh
 conda activate T2M-GPT
 
-python3 train_vq.py \
---batch-size 256 \
---lr 2e-4 \
---total-iter 300000 \
---lr-scheduler 200000 \
+python3 train_t2m_trans.py  \
+--exp-name GPT \
+--batch-size 128 \
+--num-layers 9 \
+--embed-dim-gpt 1024 \
 --nb-code 512 \
+--n-head-gpt 16 \
+--block-size 51 \
+--ff-rate 4 \
+--drop-out-rate 0.1 \
+--resume-pth output/VQVAE/net_last.pth \
+--vq-name VQVAE \
+--out-dir output \
+--total-iter 300000 \
+--lr-scheduler 150000 \
+--lr 0.0001 \
+--dataname t2m \
 --down-t 2 \
 --depth 3 \
---dilation-growth-rate 3 \
---out-dir output \
---dataname t2m \
---vq-act relu \
 --quantizer ema_reset \
---loss-vel 0.5 \
---recons-loss l1_smooth \
---exp-name VQVAE
+--eval-iter 10000 \
+--pkeep 0.5 \
+--dilation-growth-rate 3 \
+--vq-act relu
