@@ -6,7 +6,8 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 import models.vqvae as vqvae
-import utils.losses as losses 
+import utils.losses as losses
+import utils.ErgoLoss as ErgoLoss
 import options.option_vq as option_vq
 import utils.utils_model as utils_model
 from dataset import dataset_VQ, dataset_TM_eval
@@ -95,6 +96,7 @@ scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_s
   
 
 Loss = losses.ReConsLoss(args.recons_loss, args.nb_joints)
+Loss_ergo = ErgoLoss.ErgoLoss.ErgoLoss(args.nb_joints)
 
 ##### ------ warm-up ------- #####
 avg_recons, avg_perplexity, avg_commit = 0., 0., 0.
@@ -109,9 +111,18 @@ for nb_iter in range(1, args.warm_up_iter):
     pred_motion, loss_commit, perplexity = net(gt_motion)
     loss_motion = Loss(pred_motion, gt_motion)
     loss_vel = Loss.forward_vel(pred_motion, gt_motion)
-    
-    loss = loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel
-    
+    ergo_loss = Loss_ergo.forward(pred_motion)
+
+    ## print loss and hyperparameter table
+    print("#" * 30, "loss and hyperparameter table", "#" * 30)
+    print(f"Loss:  motion {loss_motion.item():<10} commit {loss_commit.item():<10} vel {loss_vel.item():<10} ergo {ergo_loss.item():<10}")
+    # hyperparameter
+    print(f"Hyper: motion {1:<10} Commit {args.commit:<10} vel {args.loss_vel:<10} ergo {args.loss_ergo:<10}")
+
+    loss = loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel + args.loss_ergo * ergo_loss
+    # total loss
+    print(f"Total loss {loss.item():<10}")
+    print("#" * 75)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
