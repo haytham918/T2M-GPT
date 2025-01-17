@@ -9,7 +9,7 @@
 #SBATCH --mem=180g
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
-#SBATCH --time=14:30:00
+#SBATCH --time=30:30:00
 #SBATCH --account=shdpm0
 ##### END preamble
 
