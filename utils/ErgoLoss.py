@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import reba
+from .reba import *
 from utils.motion_process import recover_from_ric
 
 
