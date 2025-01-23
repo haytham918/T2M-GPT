@@ -224,7 +224,7 @@ def get_score_a(neck, leg, trunk, gamma=10.0):
         torch.Tensor: Differentiable Score A.
     """
     table_coordinates = table_a_coordinates
-    coordinates = torch.tensor([coord[:3] for coord in table_coordinates], dtype=torch.float32)  # (N, 3)
+    coordinates = torch.tensor([coord[:3] for coord in table_coordinates], dtype=torch.float32).to("cuda")  # (N, 3)
     scores = torch.tensor([coord[3] for coord in table_coordinates], dtype=torch.float32)  # (N,)
     
     # Ensure inputs are tensors
@@ -243,6 +243,8 @@ def get_score_a(neck, leg, trunk, gamma=10.0):
     weights = weights / weights.sum(dim=-1, keepdim=True)
     
     # Compute the interpolated Score A
+    weights = weights.to("cuda")
+    scores = scores.to("cuda")
     score_a = torch.matmul(weights, scores)  # Weighted sum of scores
     
     return score_a.squeeze()
@@ -313,7 +315,7 @@ def get_score_b(upper_arm, lower_arm, wrist, gamma=10.0):
         torch.Tensor: Differentiable Score B.
     """
     table_coordinates = table_b_coordinates
-    coordinates = torch.tensor([coord[:3] for coord in table_coordinates], dtype=torch.float32)  # (N, 3)
+    coordinates = torch.tensor([coord[:3] for coord in table_coordinates], dtype=torch.float32).to('cuda')  # (N, 3)
     scores = torch.tensor([coord[3] for coord in table_coordinates], dtype=torch.float32)  # (N,)
     
     # Ensure inputs are tensors
@@ -330,6 +332,9 @@ def get_score_b(upper_arm, lower_arm, wrist, gamma=10.0):
     
     # Normalize weights
     weights = weights / weights.sum(dim=-1, keepdim=True)
+    
+    weights = weights.to('cuda')
+    scores = scores.to('cuda')
     
     # Compute the interpolated Score B
     score_b = torch.matmul(weights, scores)  # Weighted sum of scores
@@ -401,7 +406,7 @@ def get_score_c(score_a, score_b, gamma=10.0):
         torch.Tensor: Differentiable Score C.
     """
     table_coordinates = table_c_coordinates
-    coordinates = torch.tensor([coord[:2] for coord in table_coordinates], dtype=torch.float32)  # (N, 2)
+    coordinates = torch.tensor([coord[:2] for coord in table_coordinates], dtype=torch.float32).to('cuda')  # (N, 2)
     scores = torch.tensor([coord[2] for coord in table_coordinates], dtype=torch.float32)  # (N,)
     
     # Ensure inputs are tensors
@@ -417,6 +422,9 @@ def get_score_c(score_a, score_b, gamma=10.0):
     
     # Normalize weights
     weights = weights / weights.sum(dim=-1, keepdim=True)
+    
+    weights = weights.to('cuda')
+    scores = scores.to('cuda')
     
     # Compute the interpolated Score A
     score_c = torch.matmul(weights, scores)  # Weighted sum of scores

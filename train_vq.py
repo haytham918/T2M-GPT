@@ -96,7 +96,7 @@ scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_s
   
 
 Loss = losses.ReConsLoss(args.recons_loss, args.nb_joints)
-Loss_ergo = ErgoLoss.ErgoLoss.ErgoLoss(args.nb_joints)
+Loss_ergo = ErgoLoss.ErgoLoss(args.nb_joints)
 
 ##### ------ warm-up ------- #####
 avg_recons, avg_perplexity, avg_commit = 0., 0., 0.

@@ -1,6 +1,12 @@
 import torch
 import torch.nn as nn
-from .reba import *
+import numpy as np
+import sys
+import os
+
+sys.path.append(os.path.dirname(__file__))
+
+import reba
 from utils.motion_process import recover_from_ric
 
 
@@ -64,8 +70,8 @@ class ErgoLoss(nn.Module):
         ### upper_arm
         right_upper_arm_vec = pred_xyz[0, :, 19, :] - pred_xyz[0, :, 17, :]
         left_upper_arm_vec = pred_xyz[0, :, 18, :] - pred_xyz[0, :, 16, :]
-        right_upper_arm_angle = torch.pi - self.anlge_3D(right_upper_arm_vec, trunk_angle)
-        left_upper_arm_angle = torch.pi - self.anlge_3D(left_upper_arm_vec, trunk_angle)  # + - is the same score
+        right_upper_arm_angle = np.pi - self.anlge_3D(right_upper_arm_vec, trunk_vec)
+        left_upper_arm_angle = np.pi - self.anlge_3D(left_upper_arm_vec, trunk_vec)  # + - is the same score
         upper_arm_angle = torch.max(right_upper_arm_angle, left_upper_arm_angle)
 
         ### lower_arm
