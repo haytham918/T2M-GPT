@@ -96,7 +96,7 @@ scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_s
   
 
 Loss = losses.ReConsLoss(args.recons_loss, args.nb_joints)
-Loss_ergo = ErgoLoss.ErgoLoss.ErgoLoss(args.nb_joints)
+Loss_ergo = ErgoLoss.ErgoLoss(args.nb_joints)
 
 ##### ------ warm-up ------- #####
 avg_recons, avg_perplexity, avg_commit = 0., 0., 0.
@@ -119,9 +119,11 @@ for nb_iter in range(1, args.warm_up_iter):
     # hyperparameter
     print(f"Hyper: motion {1:<10} Commit {args.commit:<10} vel {args.loss_vel:<10} ergo {args.loss_ergo:<10}")
 
-    loss = loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel + args.loss_ergo * ergo_loss
+    loss_before = (loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel)
+    loss = (loss_before + args.loss_ergo * ergo_loss)
+
     # total loss
-    print(f"Total loss {loss.item():<10}")
+    print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}")
     print("#" * 75)
     optimizer.zero_grad()
     loss.backward()
@@ -179,4 +181,11 @@ for nb_iter in range(1, args.total_iter + 1):
 
     if nb_iter % args.eval_iter==0 :
         best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = eval_trans.evaluation_vqvae(args.out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper=eval_wrapper)
-        
+
+
+    # file = "/Users/leyangwen/Downloads/new_joint_vecs/000006.npy"
+    # motion = np.load(file)
+    # last_4 = motion[..., -4:].flatten()
+    # min_idx = np.argmin(last_4)
+    # print(min_idx, last_4[min_idx])
+    # print(4*199- np.sum(last_4))

@@ -113,6 +113,60 @@ class joints2smpl:
 
         return thetas.clone().detach(), {'pose': new_opt_joints[0, :24].flatten().clone().detach(), 'betas': new_opt_betas.clone().detach(), 'cam': new_opt_cam_t.clone().detach()}
 
+    def joint2smpl_loss(self, input_joints, init_params=None):
+        _smplify = self.smplify # if init_params is None else self.smplify_fast
+        pred_pose = torch.zeros(self.batch_size, 72).to(self.device)
+        pred_betas = torch.zeros(self.batch_size, 10).to(self.device)
+        pred_cam_t = torch.zeros(self.batch_size, 3).to(self.device)
+        keypoints_3d = torch.zeros(self.batch_size, self.num_joints, 3).to(self.device)
+
+        # run the whole seqs
+        num_seqs = input_joints.shape[0]
+
+
+        # joints3d = input_joints[idx]  # *1.2 #scale problem [check first]
+        keypoints_3d = torch.Tensor(input_joints).to(self.device).float()
+
+        # if idx == 0:
+        if init_params is None:
+            pred_betas = self.init_mean_shape
+            pred_pose = self.init_mean_pose
+            pred_cam_t = self.cam_trans_zero
+        else:
+            pred_betas = init_params['betas']
+            pred_pose = init_params['pose']
+            pred_cam_t = init_params['cam']
+
+        if self.joint_category == "AMASS":
+            confidence_input = torch.ones(self.num_joints)
+            # make sure the foot and ankle
+            if self.fix_foot == True:
+                confidence_input[7] = 1.5
+                confidence_input[8] = 1.5
+                confidence_input[10] = 1.5
+                confidence_input[11] = 1.5
+        else:
+            print("Such category not settle down!")
+
+        new_opt_vertices, new_opt_joints, new_opt_pose, new_opt_betas, \
+        new_opt_cam_t, new_opt_joint_loss = _smplify(
+            pred_pose.detach(),
+            pred_betas.detach(),
+            pred_cam_t.detach(),
+            keypoints_3d,
+            conf_3d=confidence_input.to(self.device),
+            # seq_ind=idx
+        )
+
+        thetas = new_opt_pose.reshape(self.batch_size, 24, 3)
+        thetas = geometry.matrix_to_rotation_6d(geometry.axis_angle_to_matrix(thetas))  # [bs, 24, 6]
+        root_loc = torch.tensor(keypoints_3d[:, 0])  # [bs, 3]
+        root_loc = torch.cat([root_loc, torch.zeros_like(root_loc)], dim=-1).unsqueeze(1)  # [bs, 1, 6]
+        thetas = torch.cat([thetas, root_loc], dim=1).unsqueeze(0).permute(0, 2, 3, 1)  # [1, 25, 6, 196]
+
+        return thetas.clone(), {'pose': new_opt_joints[0, :24].flatten().clone(), 'betas': new_opt_betas.clone(), 'cam': new_opt_cam_t.clone()}
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
