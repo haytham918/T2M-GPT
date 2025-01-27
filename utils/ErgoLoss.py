@@ -29,12 +29,16 @@ class ErgoLoss(nn.Module):
         norm_v2 = torch.norm(v2, dim=-1)
 
         # Avoid division by zero
-        eps = 1e-8
+        eps = 1e-7
         norm_v1 = torch.clamp(norm_v1, min=eps)
         norm_v2 = torch.clamp(norm_v2, min=eps)
 
         cos_angle = torch.clamp(dot_product / (norm_v1 * norm_v2), -1.0 + eps, 1.0 - eps)
         angle = torch.acos(cos_angle)
+
+        # angles here should be [0, pi], otherwise, convert
+        angle = torch.min(angle, np.pi - angle)
+
         return angle
 
     def in_front_plane(self, pt_ref, pt1, pt2, pt3):

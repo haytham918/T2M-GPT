@@ -240,7 +240,7 @@ def get_score_a(neck, leg, trunk, gamma=10.0):
     weights = torch.exp(-gamma * distances**2)  # RBF weights (Gaussian kernel)
     
     # Normalize weights
-    weights = weights / weights.sum(dim=-1, keepdim=True)
+    weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-7)
     
     # Compute the interpolated Score A
     score_a = torch.matmul(weights, scores)  # Weighted sum of scores
@@ -329,7 +329,7 @@ def get_score_b(upper_arm, lower_arm, wrist, gamma=10.0):
     weights = torch.exp(-gamma * distances**2)  # RBF weights (Gaussian kernel)
     
     # Normalize weights
-    weights = weights / weights.sum(dim=-1, keepdim=True)
+    weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-7)
     
     # Compute the interpolated Score B
     score_b = torch.matmul(weights, scores)  # Weighted sum of scores
@@ -416,7 +416,7 @@ def get_score_c(score_a, score_b, gamma=10.0):
     weights = torch.exp(-gamma * distances**2)  # RBF weights (Gaussian kernel)
     
     # Normalize weights
-    weights = weights / weights.sum(dim=-1, keepdim=True)
+    weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-7)
     
     # Compute the interpolated Score A
     score_c = torch.matmul(weights, scores)  # Weighted sum of scores
@@ -503,7 +503,7 @@ def get_action_level(score, gamma=10.0):
     weights = torch.exp(-gamma * distances ** 2)  # RBF weights (Gaussian kernel)
 
     # Normalize weights
-    weights = weights / weights.sum(dim=-1, keepdim=True)
+    weights = weights / (weights.sum(dim=-1, keepdim=True)  + 1e-7)
 
     # Compute the interpolated Score A
     this_action_level = torch.matmul(weights, action_levels)  # Weighted sum of scores
