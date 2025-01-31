@@ -113,7 +113,8 @@ class ErgoLoss(nn.Module):
         # action_level = reba.get_action_level(score_c)
 
         # Step 5: Loss
-        loss = (score_c)**2/16  # quadratic loss normalized between 0 and 1
+        loss = (score_c-1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
+        loss = torch.sum(loss)
         return loss
 
 
