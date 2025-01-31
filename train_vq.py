@@ -17,6 +17,7 @@ from models.evaluator_wrapper import EvaluatorModelWrapper
 import warnings
 warnings.filterwarnings('ignore')
 from utils.word_vectorizer import WordVectorizer
+from torch import autograd
 
 def update_lr_warm_up(optimizer, nb_iter, warm_up_iter, lr):
 
@@ -118,9 +119,11 @@ for nb_iter in range(1, args.warm_up_iter):
     # hyperparameter
     print(f"Hyper: motion {1:<10} Commit {args.commit:<10} vel {args.loss_vel:<10} ergo {args.loss_ergo:<10}")
 
-    loss = loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel + args.loss_ergo * ergo_loss
+    loss_before = (loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel)
+    loss = (loss_before + args.loss_ergo * ergo_loss)
+
     # total loss
-    print(f"Total loss {loss.item():<10}")
+    print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}")
     print("#" * 75)
     optimizer.zero_grad()
     loss.backward()
@@ -147,35 +150,44 @@ for nb_iter in range(1, args.total_iter + 1):
     
     gt_motion = next(train_loader_iter)
     gt_motion = gt_motion.cuda().float() # bs, nb_joints, joints_dim, seq_len
-    
-    pred_motion, loss_commit, perplexity = net(gt_motion)
-    loss_motion = Loss(pred_motion, gt_motion)
-    loss_vel = Loss.forward_vel(pred_motion, gt_motion)
-    
-    loss = loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel
-    
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    scheduler.step()
-    
-    avg_recons += loss_motion.item()
-    avg_perplexity += perplexity.item()
-    avg_commit += loss_commit.item()
-    
-    if nb_iter % args.print_iter ==  0 :
-        avg_recons /= args.print_iter
-        avg_perplexity /= args.print_iter
-        avg_commit /= args.print_iter
-        
-        writer.add_scalar('./Train/L1', avg_recons, nb_iter)
-        writer.add_scalar('./Train/PPL', avg_perplexity, nb_iter)
-        writer.add_scalar('./Train/Commit', avg_commit, nb_iter)
-        
-        logger.info(f"Train. Iter {nb_iter} : \t Commit. {avg_commit:.5f} \t PPL. {avg_perplexity:.2f} \t Recons.  {avg_recons:.5f}")
-        
-        avg_recons, avg_perplexity, avg_commit = 0., 0., 0.,
 
-    if nb_iter % args.eval_iter==0 :
-        best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = eval_trans.evaluation_vqvae(args.out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper=eval_wrapper)
-        
+    if True:  # Hi Haytham, if it still don't work, try to use autograd.detect_anomaly()
+    # with autograd.detect_anomaly():
+        pred_motion, loss_commit, perplexity = net(gt_motion)
+        loss_motion = Loss(pred_motion, gt_motion)
+        loss_vel = Loss.forward_vel(pred_motion, gt_motion)
+
+        loss = loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        avg_recons += loss_motion.item()
+        avg_perplexity += perplexity.item()
+        avg_commit += loss_commit.item()
+
+        if nb_iter % args.print_iter ==  0 :
+            avg_recons /= args.print_iter
+            avg_perplexity /= args.print_iter
+            avg_commit /= args.print_iter
+
+            writer.add_scalar('./Train/L1', avg_recons, nb_iter)
+            writer.add_scalar('./Train/PPL', avg_perplexity, nb_iter)
+            writer.add_scalar('./Train/Commit', avg_commit, nb_iter)
+
+            logger.info(f"Train. Iter {nb_iter} : \t Commit. {avg_commit:.5f} \t PPL. {avg_perplexity:.2f} \t Recons.  {avg_recons:.5f}")
+
+            avg_recons, avg_perplexity, avg_commit = 0., 0., 0.,
+
+        if nb_iter % args.eval_iter==0 :
+            best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = eval_trans.evaluation_vqvae(args.out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper=eval_wrapper)
+
+
+    # file = "/Users/leyangwen/Downloads/new_joint_vecs/000006.npy"
+    # motion = np.load(file)
+    # last_4 = motion[..., -4:].flatten()
+    # min_idx = np.argmin(last_4)
+    # print(min_idx, last_4[min_idx])
+    # print(4*199- np.sum(last_4))

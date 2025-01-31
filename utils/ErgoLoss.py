@@ -7,8 +7,10 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 import reba
+import numpy as np
 from utils.motion_process import recover_from_ric
-
+from visualize.simplify_loc2rot import joints2smpl
+from models.rotation2xyz import Rotation2xyz
 
 class ErgoLoss(nn.Module):
     def __init__(self, nb_joints):
@@ -33,12 +35,16 @@ class ErgoLoss(nn.Module):
         norm_v2 = torch.norm(v2, dim=-1)
 
         # Avoid division by zero
-        eps = 1e-8
+        eps = 1e-7
         norm_v1 = torch.clamp(norm_v1, min=eps)
         norm_v2 = torch.clamp(norm_v2, min=eps)
 
         cos_angle = torch.clamp(dot_product / (norm_v1 * norm_v2), -1.0 + eps, 1.0 - eps)
         angle = torch.acos(cos_angle)
+
+        # angles here should be [0, pi], otherwise, convert
+        angle = torch.min(angle, np.pi - angle)
+
         return angle
 
     def in_front_plane(self, pt_ref, pt1, pt2, pt3):
@@ -58,9 +64,51 @@ class ErgoLoss(nn.Module):
         dot_product = torch.sum(normal * ref_to_pt1, dim=-1)
         return dot_product > 0
 
+    def marker_vids(self):  # read xml
+        marker_vids = {
+            'smpl': {'HDTP': 411, 'REAR': 3941, 'LEAR': 517, 'MDFH': 335, 'C7': 829, 'C7_d': 1305, 'SS': 3171, 'T8': 3024, 'XP': 3077, 'RPSIS': 5246, 'RASIS': 6573, 'LPSIS': 1781, 'LASIS': 3156,
+                     'RAP': 4721, 'RAP_b': 5283, 'RAP_f': 5354, 'LAP': 1238, 'LAP_b': 2888, 'LAP_f': 1317, 'RLE': 5090, 'RME': 5202, 'LLE': 1621, 'LME': 1732, 'RRS': 5573, 'RUS': 5568, 'LRS': 2112,
+                     'LUS': 2108, 'RMCP2': 5595, 'RMCP5': 5636, 'LMCP2': 2135, 'LMCP5': 2290, 'RIC': 5257, 'RGT': 4927, 'LIC': 1794, 'LGT': 1454, 'RMFC': 4842, 'RLFC': 4540, 'LMFC': 1369,
+                     'LLFC': 1054, 'RMM': 6832, 'RLM': 6728, 'LMM': 3432, 'LLM': 3327, 'RMTP1': 6739, 'RMTP5': 6745, 'LMTP1': 3337, 'LMTP5': 3344, 'RHEEL': 6786, 'LHEEL': 3387},
+            'smplh': {'HDTP': 411, 'REAR': 3941, 'LEAR': 517, 'MDFH': 335, 'C7': 829, 'C7_d': 1305, 'SS': 3171, 'T8': 3024, 'XP': 3077, 'RPSIS': 5246, 'RASIS': 6573, 'LPSIS': 1781, 'LASIS': 3156,
+                      'RAP': 4721, 'RAP_b': 5283, 'RAP_f': 5354, 'LAP': 1238, 'LAP_b': 2888, 'LAP_f': 1317, 'RLE': 5090, 'RME': 5202, 'LLE': 1621, 'LME': 1732, 'RRS': 5573, 'RUS': 5568, 'LRS': 2112,
+                      'LUS': 2108, 'RMCP2': 5595, 'RMCP5': 5636, 'LMCP2': 2135, 'LMCP5': 2290, 'RIC': 5257, 'RGT': 4927, 'LIC': 1794, 'LGT': 1454, 'RMFC': 4842, 'RLFC': 4540, 'LMFC': 1369,
+                      'LLFC': 1054, 'RMM': 6832, 'RLM': 6728, 'LMM': 3432, 'LLM': 3327, 'RMTP1': 6739, 'RMTP5': 6745, 'LMTP1': 3337, 'LMTP5': 3344, 'RHEEL': 6786, 'LHEEL': 3387},
+            'smplx': {'HDTP': 9011, 'REAR': 1050, 'LEAR': 560, 'MDFH': 8949, 'C7': 3353, 'C7_d': 5349, 'SS': 5533, 'T8': 5495, 'XP': 5534, 'RPSIS': 7141, 'RASIS': 8421, 'LPSIS': 4405, 'LASIS': 5727,
+                      'RAP': 6175, 'RAP_b': 6632, 'RAP_f': 7253, 'LAP': 3414, 'LAP_b': 4431, 'LAP_f': 4517, 'RLE': 6695, 'RME': 7107, 'LLE': 4251, 'LME': 4371, 'RRS': 7462, 'RUS': 7458, 'LRS': 4726,
+                      'LUS': 4722, 'RMCP2': 7483, 'RMCP5': 7525, 'LMCP2': 4747, 'LMCP5': 4788, 'RIC': 7149, 'RGT': 6832, 'LIC': 4413, 'LGT': 4088, 'RMFC': 6747, 'RLFC': 6445, 'LMFC': 3999,
+                      'LLFC': 3684, 'RMM': 8680, 'RLM': 8576, 'LMM': 8892, 'LLM': 5882, 'RMTP1': 8587, 'RMTP5': 8593, 'LMTP1': 5893, 'LMTP5': 5899, 'RHEEL': 8634, 'LHEEL': 8846}}
+        return marker_vids
+
+    def get_smpl_mesh(self, motions):
+        frames = motions.shape[0]  # batch_size
+        j2s = joints2smpl(num_frames=frames, device_id=0, cuda=True)
+        rot2xyz = Rotation2xyz(device=torch.device("cuda:0"))
+        # faces = rot2xyz.smpl_model.faces
+        motion_tensor, opt_dict = j2s.joint2smpl(motions)  # [nframes, njoints, 3]
+
+        vertices = rot2xyz(torch.tensor(motion_tensor).clone(), mask=None,
+                           pose_rep='rot6d', translation=True, glob=True,
+                           jointstype='vertices',
+                           vertstrans=True)
+        return vertices
+
     def forward(self, motion_pred):
         # Step 1: compute angles
         pred_xyz = recover_from_ric((motion_pred).float(), self.nb_joints).reshape(1, -1, self.nb_joints, 3)
+
+        version_2 = False
+        if version_2:  # V2, add SMPL verts in loss
+            pred_vert = self.get_smpl_mesh(pred_xyz)
+            ## get SMPL vertID, to 66 keypoints
+            marker_vids = self.marker_vids()['smpl']
+            name_list = list(marker_vids.keys())
+            idx_list = list(marker_vids.values())
+            marker_vertices = pred_vert[:, idx_list, :]
+            # marker_vids = marker_vids['smpl']
+            # for i in range(len(name_list)):
+            #     print(i, name_list[i])
+
         batch_size = pred_xyz.shape[1]
         ### trunk
         trunk_vec = pred_xyz[0, :, 12, :] - pred_xyz[0, :, 0, :]  # Root-->Neck_base
@@ -72,6 +120,8 @@ class ErgoLoss(nn.Module):
         left_upper_arm_vec = pred_xyz[0, :, 18, :] - pred_xyz[0, :, 16, :]
         right_upper_arm_angle = np.pi - self.anlge_3D(right_upper_arm_vec, trunk_vec)
         left_upper_arm_angle = np.pi - self.anlge_3D(left_upper_arm_vec, trunk_vec)  # + - is the same score
+        right_upper_arm_angle = np.pi - self.anlge_3D(right_upper_arm_vec, trunk_vec)
+        left_upper_arm_angle = np.pi - self.anlge_3D(left_upper_arm_vec, trunk_vec)  # + - is the same score
         upper_arm_angle = torch.max(right_upper_arm_angle, left_upper_arm_angle)
 
         ### lower_arm
@@ -81,8 +131,21 @@ class ErgoLoss(nn.Module):
         left_lower_arm_angle = self.anlge_3D(left_lower_arm_vec, left_upper_arm_vec)
         lower_arm_angle = torch.max(right_lower_arm_angle, left_lower_arm_angle)
 
-        ### wrist: no wrist joint in the 22 kpts
-        ### neck: no good kpts, head base (15) is too forward
+
+        if version_2:
+            ### wrist: no wrist joint in the 22 kpts
+            right_hand = (marker_vertices[0, :, 27, :] + marker_vertices[0, :, 28, :])/2
+            left_hand = (marker_vertices[0, :, 29, :] + marker_vertices[0, :, 30, :]) / 2
+            right_hand_vec = right_hand - pred_xyz[0, :, 21, :]
+            left_hand_vec = left_hand - pred_xyz[0, :, 20, :]
+            right_wrist_angle = self.anlge_3D(right_hand_vec, right_lower_arm_vec)
+            left_wrist_angle = self.anlge_3D(left_hand_vec, left_lower_arm_vec)
+            wrist_angle = torch.max(right_wrist_angle, left_wrist_angle)
+
+            ### head
+            HDTP = marker_vertices[0, :, 0, :]
+            head_vec = HDTP - pred_xyz[0, :, 12, :]
+            neck_angle = self.anlge_3D(head_vec, trunk_vec)
 
         ### leg
         right_upper_leg_vec = pred_xyz[0, :, 5, :] - pred_xyz[0, :, 2, :]
@@ -96,13 +159,18 @@ class ErgoLoss(nn.Module):
 
         # Step 2: joint scores
 
+
         trunk = reba.get_trunk_score(trunk_angle, steepness=1)
         upper_arm = reba.get_upper_arm_score(upper_arm_angle, steepness=1)
         lower_arm = reba.get_lower_arm_score(lower_arm_angle, steepness=1)
         leg = reba.get_leg_score(knee_angle, steepness=1)
 
-        wrist = torch.ones_like(trunk)  # wrist = reba.get_wrist_score(angles, steepness=1)
-        neck = torch.ones_like(trunk)  # neck = reba.get_neck_score(angles, steepness=1)
+        if version_2:
+            wrist = reba.get_wrist_score(wrist_angle, steepness=1)
+            neck = reba.get_neck_score(neck_angle, steepness=1)
+        else:
+            wrist = torch.ones_like(trunk)  # wrist = reba.get_wrist_score(angles, steepness=1)
+            neck = torch.ones_like(trunk)  # neck = reba.get_neck_score(angles, steepness=1)
 
         # Step 3: REBA score
         score_a = reba.get_score_a(neck, leg, trunk)  # Score A value between 1 and 12
@@ -113,6 +181,8 @@ class ErgoLoss(nn.Module):
         # action_level = reba.get_action_level(score_c)
 
         # Step 5: Loss
+        # loss = (action_level)**2/16  # quadratic loss normalized between 0 and 1
+
         loss = (score_c-1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
         loss = torch.sum(loss)
         return loss

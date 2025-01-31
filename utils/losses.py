@@ -15,16 +15,16 @@ class ReConsLoss(nn.Module):
         # 4 global motion associated to root
         # 12 local motion (3 local xyz, 3 vel xyz, 6 rot6d)
         # 3 global vel xyz
-        # 4 foot contact
+        # 4 foot contact  # is the foot contact features calculated by the heel and toe joint velocity.
         self.nb_joints = nb_joints
         self.motion_dim = (nb_joints - 1) * 12 + 4 + 3 + 4
         
     def forward(self, motion_pred, motion_gt) : 
-        loss = self.Loss(motion_pred[..., : self.motion_dim], motion_gt[..., :self.motion_dim])
+        loss = self.Loss(motion_pred[..., : self.motion_dim], motion_gt[..., :self.motion_dim])  # (199, 263) for humanML3D (22 joints)
         return loss
     
     def forward_vel(self, motion_pred, motion_gt) : 
-        loss = self.Loss(motion_pred[..., 4 : (self.nb_joints - 1) * 3 + 4], motion_gt[..., 4 : (self.nb_joints - 1) * 3 + 4])
+        loss = self.Loss(motion_pred[..., 4 : (self.nb_joints - 1) * 3 + 4], motion_gt[..., 4 : (self.nb_joints - 1) * 3 + 4])  # (199, 63) [4:67] for humanML3D (22 joints)
         return loss
     
     
