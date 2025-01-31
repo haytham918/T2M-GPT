@@ -115,7 +115,7 @@ for nb_iter in range(1, args.warm_up_iter):
     ergo_loss = Loss_ergo.forward(pred_motion)
 
     print("#" * 30, "loss and hyperparameter table", "#" * 30)
-    print(f"Loss:  motion {loss_motion.item():<10} commit {loss_commit.item():<10} vel {loss_vel.item():<10}")
+    print(f"Loss:  motion {loss_motion.item():<10} commit {loss_commit.item():<10} vel {loss_vel.item():<10} ergo {ergo_loss.item():<10}")
     # hyperparameter
     print(f"Hyper: motion {1:<10} Commit {args.commit:<10} vel {args.loss_vel:<10} ergo {args.loss_ergo:<10}")
 
