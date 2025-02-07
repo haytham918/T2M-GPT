@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=train_vq_vae
-#SBATCH --output=output_slurm/eval_log.txt
-#SBATCH --error=output_slurm/eval_error.txt
+#SBATCH --output=output_slurm/eval_log_3_no_ergo.txt
+#SBATCH --error=output_slurm/eval_error_3_no_ergo.txt
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=32
-#SBATCH --mem=180g
+#SBATCH --mem=40g
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpu
-#SBATCH --time=30:30:00
+#SBATCH --time=30:20:00
 #SBATCH --account=shdpm0
 ##### END preamble
 
@@ -33,4 +33,8 @@ python3 train_vq.py \
 --quantizer ema_reset \
 --loss-vel 0.5 \
 --recons-loss l1_smooth \
---exp-name VQVAE
+--exp-name VQVAE \
+--print-iter 25 \
+--loss_ergo 0 \
+
+

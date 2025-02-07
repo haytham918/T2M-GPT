@@ -35,6 +35,10 @@ def guess_init_3d(model_joints,
     else:
         print("NO SUCH JOINTS CATEGORY!") 
 
+    print(f"debug: joints_ind_category: {joints_ind_category}")
+    print(f"debug: gt_joints_ind: {gt_joints_ind}")
+    print(f"debug: j3d: {j3d.shape}")
+    print(f"debug: model_joints: {model_joints.shape}")
     sum_init_t = (j3d[:, joints_ind_category] - model_joints[:, gt_joints_ind]).sum(dim=1)
     init_t = sum_init_t / 4.0
     return init_t

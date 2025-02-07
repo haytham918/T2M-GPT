@@ -13,7 +13,7 @@ from visualize.simplify_loc2rot import joints2smpl
 from models.rotation2xyz import Rotation2xyz
 
 class ErgoLoss(nn.Module):
-    def __init__(self, nb_joints):
+    def __init__(self, nb_joints, verbose=False):
         super(ErgoLoss, self).__init__()
 
         # 4 global motion associated to root
@@ -21,8 +21,10 @@ class ErgoLoss(nn.Module):
         # 3 global vel xyz
         # 4 foot contact
         self.nb_joints = nb_joints  # 22 for humanML3D, 21 for KIT (not using)
+        self.verbose = verbose
+        self.version_2 = False
 
-    def anlge_3D(self, v1, v2):
+    def anlge_3D(self, v1, v2, output_type='degree'):
         # todo: write test
         """
         Compute the angle between two vectors in 3D space
@@ -44,7 +46,8 @@ class ErgoLoss(nn.Module):
 
         # angles here should be [0, pi], otherwise, convert
         angle = torch.min(angle, np.pi - angle)
-
+        if output_type == 'degree':
+            angle = angle * 180 / np.pi
         return angle
 
     def in_front_plane(self, pt_ref, pt1, pt2, pt3):
@@ -97,7 +100,7 @@ class ErgoLoss(nn.Module):
         # Step 1: compute angles
         pred_xyz = recover_from_ric((motion_pred).float(), self.nb_joints).reshape(1, -1, self.nb_joints, 3)
 
-        version_2 = False
+        version_2 = self.version_2
         if version_2:  # V2, add SMPL verts in loss
             pred_vert = self.get_smpl_mesh(pred_xyz)
             ## get SMPL vertID, to 66 keypoints
@@ -158,8 +161,6 @@ class ErgoLoss(nn.Module):
         knee_angle = torch.max(right_knee_angle, left_knee_angle)
 
         # Step 2: joint scores
-
-
         trunk = reba.get_trunk_score(trunk_angle, steepness=1)
         upper_arm = reba.get_upper_arm_score(upper_arm_angle, steepness=1)
         lower_arm = reba.get_lower_arm_score(lower_arm_angle, steepness=1)
@@ -172,19 +173,37 @@ class ErgoLoss(nn.Module):
             wrist = torch.ones_like(trunk)  # wrist = reba.get_wrist_score(angles, steepness=1)
             neck = torch.ones_like(trunk)  # neck = reba.get_neck_score(angles, steepness=1)
 
+
         # Step 3: REBA score
         score_a = reba.get_score_a(neck, leg, trunk)  # Score A value between 1 and 12
         score_b = reba.get_score_b(upper_arm, lower_arm, wrist)  # Score B value between 1 and 12
         score_c = reba.get_score_c(score_a, score_b)
+
+        self.ave_REBA_score = torch.mean(score_c)
+        if self.verbose:
+            print(f"Trunk angle: {trunk_angle}")
+            print(f"Upper arm angle: {upper_arm_angle}")
+            print(f"Lower arm angle: {lower_arm_angle}")
+            print(f"Knee angle: {knee_angle}")
+            print(f"Trunk score: {trunk}")
+            print(f"Upper arm score: {upper_arm}")
+            print(f"Lower arm score: {lower_arm}")
+            print(f"Leg score: {leg}")
+            print(f"Wrist score: {wrist}")
+            print(f"Neck score: {neck}")
+            print(f"REBA score A: {score_a}")
+            print(f"REBA score B: {score_b}")
+            print(f"REBA score C: {score_c}")
+            print(f"Average REBA score C: {torch.mean(score_c)}")
 
         # # Step 4: REBA action level
         # action_level = reba.get_action_level(score_c)
 
         # Step 5: Loss
         # loss = (action_level)**2/16  # quadratic loss normalized between 0 and 1
-
         loss = (score_c-1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
         loss = torch.sum(loss)
+
         return loss
 
 

@@ -18,6 +18,7 @@ import warnings
 warnings.filterwarnings('ignore')
 from utils.word_vectorizer import WordVectorizer
 from torch import autograd
+import wandb
 
 def update_lr_warm_up(optimizer, nb_iter, warm_up_iter, lr):
 
@@ -99,6 +100,10 @@ scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_s
 Loss = losses.ReConsLoss(args.recons_loss, args.nb_joints)
 Loss_ergo = ErgoLoss.ErgoLoss(args.nb_joints)
 
+ # hyperparameter
+print(f"Hyperparameter: motion {1:<10}, Commit {args.commit:<10}, vel {args.loss_vel:<10}, ergo {args.loss_ergo:<10}")
+
+
 ##### ------ warm-up ------- #####
 avg_recons, avg_perplexity, avg_commit = 0., 0., 0.
 
@@ -112,19 +117,16 @@ for nb_iter in range(1, args.warm_up_iter):
     pred_motion, loss_commit, perplexity = net(gt_motion)
     loss_motion = Loss(pred_motion, gt_motion)
     loss_vel = Loss.forward_vel(pred_motion, gt_motion)
-    ergo_loss = Loss_ergo.forward(pred_motion)
 
-    print("#" * 30, "loss and hyperparameter table", "#" * 30)
-    print(f"Loss:  motion {loss_motion.item():<10} commit {loss_commit.item():<10} vel {loss_vel.item():<10} ergo {ergo_loss.item():<10}")
-    # hyperparameter
-    print(f"Hyper: motion {1:<10} Commit {args.commit:<10} vel {args.loss_vel:<10} ergo {args.loss_ergo:<10}")
+    # add ergo loss
+    ergo_loss = Loss_ergo.forward(pred_motion)
+    ave_REBA_score = Loss_ergo.ave_REBA_score
+
 
     loss_before = (loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel)
     loss = (loss_before + args.loss_ergo * ergo_loss)
 
-    # total loss
-    print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}")
-    print("#" * 75)
+
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -140,6 +142,12 @@ for nb_iter in range(1, args.warm_up_iter):
         
         logger.info(f"Warmup. Iter {nb_iter} :  lr {current_lr:.5f} \t Commit. {avg_commit:.5f} \t PPL. {avg_perplexity:.2f} \t Recons.  {avg_recons:.5f}")
         
+        print(f"Warm up iter: {nb_iter}/{args.warm_up_iter}")
+        print(f"Loss:  motion {loss_motion.item():<10}, commit {loss_commit.item():<10}, vel {loss_vel.item():<10}, ergo {ergo_loss.item():<10}, ave_REBA {ave_REBA_score:<10}")
+        # total loss
+        print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}")
+        print("#" * 40)
+        
         avg_recons, avg_perplexity, avg_commit = 0., 0., 0.
 
 ##### ---- Training ---- #####
@@ -151,38 +159,49 @@ for nb_iter in range(1, args.total_iter + 1):
     gt_motion = next(train_loader_iter)
     gt_motion = gt_motion.cuda().float() # bs, nb_joints, joints_dim, seq_len
 
-    if True:  # Hi Haytham, if it still don't work, try to use autograd.detect_anomaly()
-    # with autograd.detect_anomaly():
-        pred_motion, loss_commit, perplexity = net(gt_motion)
-        loss_motion = Loss(pred_motion, gt_motion)
-        loss_vel = Loss.forward_vel(pred_motion, gt_motion)
+    pred_motion, loss_commit, perplexity = net(gt_motion)
+    loss_motion = Loss(pred_motion, gt_motion)
+    loss_vel = Loss.forward_vel(pred_motion, gt_motion)
 
-        loss = loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel
+    # add ergo loss
+    ergo_loss = Loss_ergo.forward(pred_motion)
+    ave_REBA_score = Loss_ergo.ave_REBA_score
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
 
-        avg_recons += loss_motion.item()
-        avg_perplexity += perplexity.item()
-        avg_commit += loss_commit.item()
+    loss_before = (loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel)
+    loss = (loss_before + args.loss_ergo * ergo_loss)
 
-        if nb_iter % args.print_iter ==  0 :
-            avg_recons /= args.print_iter
-            avg_perplexity /= args.print_iter
-            avg_commit /= args.print_iter
 
-            writer.add_scalar('./Train/L1', avg_recons, nb_iter)
-            writer.add_scalar('./Train/PPL', avg_perplexity, nb_iter)
-            writer.add_scalar('./Train/Commit', avg_commit, nb_iter)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    scheduler.step()
 
-            logger.info(f"Train. Iter {nb_iter} : \t Commit. {avg_commit:.5f} \t PPL. {avg_perplexity:.2f} \t Recons.  {avg_recons:.5f}")
+    avg_recons += loss_motion.item()
+    avg_perplexity += perplexity.item()
+    avg_commit += loss_commit.item()
 
-            avg_recons, avg_perplexity, avg_commit = 0., 0., 0.,
+    if nb_iter % args.print_iter ==  0 :
+        avg_recons /= args.print_iter
+        avg_perplexity /= args.print_iter
+        avg_commit /= args.print_iter
 
-        if nb_iter % args.eval_iter==0 :
-            best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = eval_trans.evaluation_vqvae(args.out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper=eval_wrapper)
+        writer.add_scalar('./Train/L1', avg_recons, nb_iter)
+        writer.add_scalar('./Train/PPL', avg_perplexity, nb_iter)
+        writer.add_scalar('./Train/Commit', avg_commit, nb_iter)
+
+        logger.info(f"Train. Iter {nb_iter} : \t Commit. {avg_commit:.5f} \t PPL. {avg_perplexity:.2f} \t Recons.  {avg_recons:.5f}")
+
+        print(f"Iter: {nb_iter}/{args.total_iter}")
+        print(f"Loss:  motion {loss_motion.item():<10}, commit {loss_commit.item():<10}, vel {loss_vel.item():<10}, ergo {ergo_loss.item():<10}, ave_REBA {ave_REBA_score:<10}")
+        # total loss
+        print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}")
+        print("#" * 40)
+
+        avg_recons, avg_perplexity, avg_commit = 0., 0., 0.,
+
+    if nb_iter % args.eval_iter==0 :
+        best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = eval_trans.evaluation_vqvae(args.out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper=eval_wrapper)
 
 
     # file = "/Users/leyangwen/Downloads/new_joint_vecs/000006.npy"

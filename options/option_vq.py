@@ -20,7 +20,7 @@ def get_args_parser():
     parser.add_argument('--weight-decay', default=0.0, type=float, help='weight decay')
     parser.add_argument("--commit", type=float, default=0.02, help="hyper-parameter for the commitment loss")
     parser.add_argument('--loss-vel', type=float, default=0.1, help='hyper-parameter for the velocity loss')
-    parser.add_argument('--loss_ergo', type=float, default=150000, help='hyper-parameter for the ergo loss')
+    parser.add_argument('--loss_ergo', type=float, default=1, help='hyper-parameter for the ergo loss')
     parser.add_argument('--recons-loss', type=str, default='l2', help='reconstruction loss')
     
     ## vqvae arch
@@ -57,6 +57,8 @@ def get_args_parser():
     
     parser.add_argument('--vis-gt', action='store_true', help='whether visualize GT motions')
     parser.add_argument('--nb-vis', default=20, type=int, help='nb of visualizations')
+    parser.add_argument('--wandb_project', default='T2M-GPT', type=str, help='wandb project name')
+    parser.add_argument('--wandb_name', default='test', type=str, help='wandb run name')
     
     
     return parser.parse_args()

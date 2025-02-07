@@ -72,7 +72,8 @@ class joints2smpl:
 
 
         # joints3d = input_joints[idx]  # *1.2 #scale problem [check first]
-        keypoints_3d = torch.Tensor(input_joints).to(self.device).float()
+        # keypoints_3d = torch.Tensor(input_joints).to(self.device).float()
+        keypoints_3d = torch.as_tensor(input_joints, device=self.device).float()
 
         # if idx == 0:
         if init_params is None:

@@ -27,7 +27,8 @@ class Text2MotionDataset(data.Dataset):
         self.mot_end_idx = codebook_size
         self.mot_pad_idx = codebook_size + 1
         if dataset_name == 't2m':
-            self.data_root = './dataset/HumanML3D'
+            # self.data_root = './dataset/HumanML3D'
+            self.data_root = '/nfs/turbo/coe-shdpm/leyang/Datasets/MotionLanguage/HumanML3D/HumanML3D'
             self.motion_dir = pjoin(self.data_root, 'new_joint_vecs')
             self.text_dir = pjoin(self.data_root, 'texts')
             self.joints_num = 22
