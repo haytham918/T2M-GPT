@@ -179,7 +179,7 @@ class ErgoLoss(nn.Module):
         score_b = reba.get_score_b(upper_arm, lower_arm, wrist)  # Score B value between 1 and 12
         score_c = reba.get_score_c(score_a, score_b)
 
-        self.ave_REBA_score = torch.mean(score_c)
+
         if self.verbose:
             print(f"Trunk angle: {trunk_angle}")
             print(f"Upper arm angle: {upper_arm_angle}")
@@ -201,7 +201,14 @@ class ErgoLoss(nn.Module):
 
         # Step 5: Loss
         # loss = (action_level)**2/16  # quadratic loss normalized between 0 and 1
-        loss = (score_c-1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
+        self.ave_REBA_score = torch.mean(score_c)
+        self.max_REBA_score = torch.max(score_c)
+
+        # max
+        # loss = (self.max_REBA_score -1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
+
+        # sum
+        loss = loss = (score_c-1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
         loss = torch.sum(loss)
 
         return loss

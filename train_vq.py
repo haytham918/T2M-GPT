@@ -28,9 +28,25 @@ def update_lr_warm_up(optimizer, nb_iter, warm_up_iter, lr):
 
     return optimizer, current_lr
 
+def ergo_loss_weight(args, nb_iter, total_iter, is_warm_up=False):
+    base_weight = args.loss_ergo
+    mode = args.loss_ergo_mode
+    if is_warm_up:
+        return base_weight*0.001
+    if mode == 'same':
+        return base_weight
+    elif mode == 'decrease':
+        return base_weight * (1 - nb_iter / total_iter)
+    elif mode == 'increase':
+        return base_weight * (nb_iter / total_iter)
+    elif mode == 'zero_increase':
+        return base_weight * (nb_iter / total_iter) if nb_iter < total_iter / 2 else 0
+
+
 ##### ---- Exp dirs ---- #####
 args = option_vq.get_args_parser()
 torch.manual_seed(args.seed)
+
 
 args.out_dir = os.path.join(args.out_dir, f'{args.exp_name}')
 os.makedirs(args.out_dir, exist_ok = True)
@@ -121,11 +137,12 @@ for nb_iter in range(1, args.warm_up_iter):
     # add ergo loss
     ergo_loss = Loss_ergo.forward(pred_motion)
     ave_REBA_score = Loss_ergo.ave_REBA_score
+    max_REBA_score = Loss_ergo.max_REBA_score
 
 
     loss_before = (loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel)
-    loss = (loss_before + args.loss_ergo * ergo_loss)
-
+    current_ergo_loss_weight = ergo_loss_weight(args, nb_iter, args.warm_up_iter, is_warm_up=True)
+    loss = (loss_before + ergo_loss * current_ergo_loss_weight)
 
     optimizer.zero_grad()
     loss.backward()
@@ -143,9 +160,9 @@ for nb_iter in range(1, args.warm_up_iter):
         logger.info(f"Warmup. Iter {nb_iter} :  lr {current_lr:.5f} \t Commit. {avg_commit:.5f} \t PPL. {avg_perplexity:.2f} \t Recons.  {avg_recons:.5f}")
         
         print(f"Warm up iter: {nb_iter}/{args.warm_up_iter}")
-        print(f"Loss:  motion {loss_motion.item():<10}, commit {loss_commit.item():<10}, vel {loss_vel.item():<10}, ergo {ergo_loss.item():<10}, ave_REBA {ave_REBA_score:<10}")
+        print(f"Loss:  motion {loss_motion.item():<10}, commit {loss_commit.item():<10}, vel {loss_vel.item():<10}, ergo {ergo_loss.item():<10}, ave_REBA {ave_REBA_score:<10}, max_REBA {max_REBA_score:<10}")
         # total loss
-        print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}")
+        print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}, ergo weight {current_ergo_loss_weight:<10}")
         print("#" * 40)
         
         avg_recons, avg_perplexity, avg_commit = 0., 0., 0.
@@ -166,10 +183,12 @@ for nb_iter in range(1, args.total_iter + 1):
     # add ergo loss
     ergo_loss = Loss_ergo.forward(pred_motion)
     ave_REBA_score = Loss_ergo.ave_REBA_score
+    max_REBA_score = Loss_ergo.max_REBA_score
 
 
     loss_before = (loss_motion + args.commit * loss_commit + args.loss_vel * loss_vel)
-    loss = (loss_before + args.loss_ergo * ergo_loss)
+    current_ergo_loss_weight = ergo_loss_weight(args, nb_iter, args.total_iter, is_warm_up=False)
+    loss = (loss_before + ergo_loss * current_ergo_loss_weight)
 
 
     optimizer.zero_grad()
@@ -193,15 +212,15 @@ for nb_iter in range(1, args.total_iter + 1):
         logger.info(f"Train. Iter {nb_iter} : \t Commit. {avg_commit:.5f} \t PPL. {avg_perplexity:.2f} \t Recons.  {avg_recons:.5f}")
 
         print(f"Iter: {nb_iter}/{args.total_iter}")
-        print(f"Loss:  motion {loss_motion.item():<10}, commit {loss_commit.item():<10}, vel {loss_vel.item():<10}, ergo {ergo_loss.item():<10}, ave_REBA {ave_REBA_score:<10}")
+        print(f"Loss:  motion {loss_motion.item():<10}, commit {loss_commit.item():<10}, vel {loss_vel.item():<10}, ergo {ergo_loss.item():<10}, ave_REBA {ave_REBA_score:<10}, max_REBA {max_REBA_score:<10}")
         # total loss
-        print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}")
+        print(f"Total loss {loss:<10}, loss before {loss_before:<10}, ergo% {1-loss_before/loss:<10}, ergo weight {current_ergo_loss_weight:<10}")
         print("#" * 40)
 
         avg_recons, avg_perplexity, avg_commit = 0., 0., 0.,
 
     if nb_iter % args.eval_iter==0 :
-        best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = eval_trans.evaluation_vqvae(args.out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper=eval_wrapper)
+        best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, writer, logger = eval_trans.evaluation_vqvae(args.out_dir, val_loader, net, logger, writer, nb_iter, best_fid, best_iter, best_div, best_top1, best_top2, best_top3, best_matching, eval_wrapper=eval_wrapper, savegif=True)
 
 
     # file = "/Users/leyangwen/Downloads/new_joint_vecs/000006.npy"
