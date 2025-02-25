@@ -36,6 +36,11 @@ def log_reader(file_path):
             vel = float(elements[6])
             ergo = float(elements[8])
             ave_reba = float(elements[10])
+            try:
+                max_reba = float(elements[12])
+            except:
+                max_reba = 0
+
 
         elif line.startswith("Total loss"):  #'Total loss 1.2383697032928467, loss before 0.9914768934249878, ergo% 0.19936925172805786\n'
             elements = re.split(' |, ', line)
@@ -43,9 +48,13 @@ def log_reader(file_path):
             total_loss = float(elements[2])
             loss_before = float(elements[5])
             ergo_percentage = float(elements[7])
+            try:
+                ergo_weight = float(elements[10])
+            except:
+                ergo_weight = 0
 
         elif line.startswith("###########"):
-            row = [iter_num, total_iter, motion, commit, vel, ergo, ave_reba, total_loss, loss_before, ergo_percentage]
+            row = [iter_num, total_iter, motion, commit, vel, ergo, ave_reba, total_loss, loss_before, ergo_percentage, max_reba, ergo_weight]
             data.append(row)
     header = ["iter_num", "total_iter", "motion", "commit", "vel", "ergo", "ave_reba", "total_loss", "loss_before", "ergo_percentage"]
 
@@ -76,9 +85,18 @@ def log_FID_reader(file_path):
     return header, data
 
 # Define the file path
+
+#### 2025-02-04 experiment
+# dir_path = "output_slurm"
+# ergo_file = "eval_log_3.txt"
+# og_file = "eval_log_3_no_ergo.txt"
+
+#### 2025-02-11 experiment
+num = 71
+ergo_file = f"/Users/leyangwen/Downloads/VQVAE_tests/VQVAE_{num}/eval_log.txt"
 dir_path = "output_slurm"
-ergo_file = "eval_log_3-2.txt"
-og_file = "eval_log_3_no_ergo-2.txt"
+og_file = "eval_log_3_no_ergo.txt"
+
 
 # file_path = os.path.join(dir_path, ergo_file)
 header, ergo_results = log_reader(os.path.join(dir_path, ergo_file))
@@ -108,62 +126,62 @@ plt.legend()
 plt.title("Average REBA over Iteration")
 plt.show()
 
-
-## recon loss over iter
-plt.figure()
-plt.plot(ergo_results[:, 0], ergo_results[:, 7], label="w. Ergo Loss")
-plt.plot(og_results[:, 0], og_results[:, 7], label="Unmodified")
-plt.xlabel("Iteration")
-plt.ylabel("Reconstruction Loss")
-plt.legend()
-plt.ylim([0, 2])
-plt.title("Reconstruction Loss over Iteration")
-plt.show()
-
-## total loss over iter
-plt.figure()
-plt.plot(ergo_results[:, 0], ergo_results[:, 7], label="w. Ergo Loss")
-plt.plot(og_results[:, 0], og_results[:, 7], label="Unmodified")
-plt.xlabel("Iteration")
-plt.ylabel("Total Loss")
-plt.legend()
-plt.ylim([0, 2])
-plt.title("Total Loss over Iteration")
-plt.show()
-
-## commit loss over iter
-plt.figure()
-plt.plot(ergo_results[:, 0], ergo_results[:, 3], label="w. Ergo Loss")
-plt.plot(og_results[:, 0], og_results[:, 3], label="Unmodified")
-plt.xlabel("Iteration")
-plt.ylabel("Commit Loss")
-plt.legend()
-plt.title("Commit Loss over Iteration")
-plt.show()
-
-
-## vel loss over iter
-plt.figure()
-plt.plot(ergo_results[:, 0], ergo_results[:, 4], label="w. Ergo Loss")
-plt.plot(og_results[:, 0], og_results[:, 4], label="Unmodified")
-plt.xlabel("Iteration")
-plt.ylabel("Velocity Loss")
-plt.legend()
-plt.ylim([0, 0.75])
-plt.title("Velocity Loss over Iteration")
-plt.show()
-
-## ergo loss percentage over iter
-plt.figure()
-plt.plot(ergo_results[:, 0], ergo_results[:, 9], label="w. Ergo Loss")
-plt.plot(og_results[:, 0], og_results[:, 9], label="Unmodified")
-plt.xlabel("Iteration")
-plt.ylabel("Ergo Loss Percentage")
-plt.legend()
-plt.ylim([0, 1])
-plt.title("Ergo Loss Percentage over Iteration")
-plt.show()
-
+#
+# ## recon loss over iter
+# plt.figure()
+# plt.plot(ergo_results[:, 0], ergo_results[:, 7], label="w. Ergo Loss")
+# plt.plot(og_results[:, 0], og_results[:, 7], label="Unmodified")
+# plt.xlabel("Iteration")
+# plt.ylabel("Reconstruction Loss")
+# plt.legend()
+# plt.ylim([0, 2])
+# plt.title("Reconstruction Loss over Iteration")
+# plt.show()
+#
+# ## total loss over iter
+# plt.figure()
+# plt.plot(ergo_results[:, 0], ergo_results[:, 7], label="w. Ergo Loss")
+# plt.plot(og_results[:, 0], og_results[:, 7], label="Unmodified")
+# plt.xlabel("Iteration")
+# plt.ylabel("Total Loss")
+# plt.legend()
+# plt.ylim([0, 2])
+# plt.title("Total Loss over Iteration")
+# plt.show()
+#
+# ## commit loss over iter
+# plt.figure()
+# plt.plot(ergo_results[:, 0], ergo_results[:, 3], label="w. Ergo Loss")
+# plt.plot(og_results[:, 0], og_results[:, 3], label="Unmodified")
+# plt.xlabel("Iteration")
+# plt.ylabel("Commit Loss")
+# plt.legend()
+# plt.title("Commit Loss over Iteration")
+# plt.show()
+#
+#
+# ## vel loss over iter
+# plt.figure()
+# plt.plot(ergo_results[:, 0], ergo_results[:, 4], label="w. Ergo Loss")
+# plt.plot(og_results[:, 0], og_results[:, 4], label="Unmodified")
+# plt.xlabel("Iteration")
+# plt.ylabel("Velocity Loss")
+# plt.legend()
+# plt.ylim([0, 0.75])
+# plt.title("Velocity Loss over Iteration")
+# plt.show()
+#
+# ## ergo loss percentage over iter
+# plt.figure()
+# plt.plot(ergo_results[:, 0], ergo_results[:, 9], label="w. Ergo Loss")
+# plt.plot(og_results[:, 0], og_results[:, 9], label="Unmodified")
+# plt.xlabel("Iteration")
+# plt.ylabel("Ergo Loss Percentage")
+# plt.legend()
+# plt.ylim([0, 1])
+# plt.title("Ergo Loss Percentage over Iteration")
+# plt.show()
+#
 
 ## FID over iter
 plt.figure()
@@ -172,7 +190,24 @@ plt.plot(og_FID[:, 0], og_FID[:, 1], label="Unmodified")
 plt.xlabel("Iteration")
 plt.ylabel("FID")
 plt.legend()
-plt.ylim([0, 3])
+# plt.ylim([0, 3])
 plt.title("FID over Iteration")
 plt.show()
 
+# # max_reba
+# plt.figure()
+# plt.plot(ergo_results[:, 0], ergo_results[:, 10], label="w. Ergo Loss")
+# plt.xlabel("Iteration")
+# plt.ylabel("Max REBA Score")
+# plt.legend()
+# plt.title("Max REBA over Iteration")
+# plt.show()
+
+# ergo_weight
+plt.figure()
+plt.plot(ergo_results[:, 0], ergo_results[:, 11], label="w. Ergo Loss")
+plt.xlabel("Iteration")
+plt.ylabel("Ergo Weight")
+plt.legend()
+plt.title("Ergo Weight over Iteration")
+plt.show()
