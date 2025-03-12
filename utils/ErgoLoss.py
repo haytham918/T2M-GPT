@@ -23,6 +23,7 @@ class ErgoLoss(nn.Module):
         self.nb_joints = nb_joints  # 22 for humanML3D, 21 for KIT (not using)
         self.verbose = verbose
         self.version_2 = False
+        self.REBA_improve = 0.5
 
     def anlge_3D(self, v1, v2, output_type='degree'):
         # todo: write test
@@ -95,9 +96,9 @@ class ErgoLoss(nn.Module):
                            jointstype='vertices',
                            vertstrans=True)
         return vertices
-
-    def forward(self, motion_pred):
-        # Step 1: compute angles
+    
+    def pose2REBA(self, motion_pred):
+         # Step 1: compute angles
         pred_xyz = recover_from_ric((motion_pred).float(), self.nb_joints).reshape(1, -1, self.nb_joints, 3)
 
         version_2 = self.version_2
@@ -195,21 +196,40 @@ class ErgoLoss(nn.Module):
             print(f"REBA score B: {score_b}")
             print(f"REBA score C: {score_c}")
             print(f"Average REBA score C: {torch.mean(score_c)}")
+        return score_c
 
         # # Step 4: REBA action level
         # action_level = reba.get_action_level(score_c)
 
         # Step 5: Loss
         # loss = (action_level)**2/16  # quadratic loss normalized between 0 and 1
+
+
+
+    def forward(self, motion_pred, motion_gt):
+        score_c = self.pose2REBA(motion_pred)
+        score_c_gt = self.pose2REBA(motion_gt)
+        score_diff = score_c - score_c_gt*self.REBA_improve
+
+
         self.ave_REBA_score = torch.mean(score_c)
         self.max_REBA_score = torch.max(score_c)
 
         # max
-        # loss = (self.max_REBA_score -1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
+        # loss = (self.max_REBA_score -1)** 2 /  15**2  # quadratic loss normalized between 0 and 1
 
         # sum
-        loss = loss = (score_c-1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
-        loss = torch.sum(loss)
+        if False:
+            loss = (score_c-1) ** 2 / 15**2  # quadratic loss normalized between 0 and 1
+            loss = torch.sum(loss)
+        elif True:
+            # leaky relu
+            loss = torch.nn.functional.leaky_relu(score_diff, negative_slope=0.1)
+            loss = torch.sum(loss)
+        elif False:
+            # leaky relu
+            loss = torch.nn.functional.leaky_relu(score_diff, negative_slope=0.1)** 2 
+            loss = torch.sum(loss)
 
         return loss
 

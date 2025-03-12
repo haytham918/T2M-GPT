@@ -135,7 +135,7 @@ for nb_iter in range(1, args.warm_up_iter):
     loss_vel = Loss.forward_vel(pred_motion, gt_motion)
 
     # add ergo loss
-    ergo_loss = Loss_ergo.forward(pred_motion)
+    ergo_loss = Loss_ergo.forward(pred_motion, gt_motion)
     ave_REBA_score = Loss_ergo.ave_REBA_score
     max_REBA_score = Loss_ergo.max_REBA_score
 
@@ -181,7 +181,7 @@ for nb_iter in range(1, args.total_iter + 1):
     loss_vel = Loss.forward_vel(pred_motion, gt_motion)
 
     # add ergo loss
-    ergo_loss = Loss_ergo.forward(pred_motion)
+    ergo_loss = Loss_ergo.forward(pred_motion, gt_motion)
     ave_REBA_score = Loss_ergo.ave_REBA_score
     max_REBA_score = Loss_ergo.max_REBA_score
 
