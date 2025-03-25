@@ -12,6 +12,8 @@ from utils.motion_process import recover_from_ric
 from visualize.simplify_loc2rot import joints2smpl
 from models.rotation2xyz import Rotation2xyz
 
+from ergo3d.geometryPytorch import Point, Plane, CoordinateSystem3D, JointAngles
+
 class ErgoLoss(nn.Module):
     def __init__(self, nb_joints, verbose=False):
         super(ErgoLoss, self).__init__()
@@ -84,6 +86,7 @@ class ErgoLoss(nn.Module):
                       'LLFC': 3684, 'RMM': 8680, 'RLM': 8576, 'LMM': 8892, 'LLM': 5882, 'RMTP1': 8587, 'RMTP5': 8593, 'LMTP1': 5893, 'LMTP5': 5899, 'RHEEL': 8634, 'LHEEL': 8846}}
         return marker_vids
 
+
     def get_smpl_mesh(self, motions):
         frames = motions.shape[0]  # batch_size
         j2s = joints2smpl(num_frames=frames, device_id=0, cuda=True)
@@ -96,7 +99,57 @@ class ErgoLoss(nn.Module):
                            jointstype='vertices',
                            vertstrans=True)
         return vertices
-    
+
+    # def neck_angle(self, head, neck, trunk):
+    #     zero_frame = [-90, -180, -180]
+    #     REAR = self.point_poses['REAR']
+    #     LEAR = self.point_poses['LEAR']
+    #     HDTP = self.point_poses['HDTP']
+    #     EAR = Point.mid_point(REAR, LEAR)
+    #     RSHOULDER = self.point_poses['RSHOULDER']
+    #     LSHOULDER = self.point_poses['LSHOULDER']
+    #     C7 = self.point_poses['C7']
+    #     # RPSIS = self.point_poses['RPSIS']
+    #     # LPSIS = self.point_poses['LPSIS']
+    #     PELVIS = self.point_poses['PELVIS']
+    #
+    #     HEAD_plane = Plane()
+    #     HEAD_plane.set_by_pts(REAR, LEAR, HDTP)
+    #     HEAD_coord = CoordinateSystem3D()
+    #     HEAD_coord.set_by_plane(HEAD_plane, EAR, HDTP, sequence='yxz', axis_positive=True)
+    #     NECK_angles = JointAngles()
+    #     NECK_angles.ergo_name = {'flexion': 'flexion', 'abduction': 'L-bend', 'rotation': 'rotation'}  # lateral bend
+    #     NECK_angles.set_zero(zero_frame, by_frame=False)
+    #     NECK_angles.get_flex_abd(HEAD_coord, Point.vector(C7, PELVIS), plane_seq=['xy', 'yz'], flip_sign=[1, -1])
+    #     NECK_angles.get_rot(LEAR, REAR, LSHOULDER, RSHOULDER)
+
+    def back_angles(self, up_axis=[0, 1000, 0], zero_frame = [-90, 180, 180]):
+        # todo: back correction
+        C7 = self.point_poses['C7']
+        # RPSIS = self.point_poses['RPSIS']
+        # LPSIS = self.point_poses['LPSIS']
+        RHIP = self.point_poses['RHIP']
+        LHIP = self.point_poses['LHIP']
+        RSHOULDER = self.point_poses['RSHOULDER']
+        LSHOULDER = self.point_poses['LSHOULDER']
+        # PELVIS_b = Point.mid_point(RPSIS, LPSIS)
+        PELVIS = self.point_poses['PELVIS']
+
+        BACK_plane = Plane()
+        BACK_plane.set_by_vector(PELVIS, Point.create_const_vector(*up_axis, examplePt=PELVIS), direction=1)
+        BACK_coord = CoordinateSystem3D()
+        # BACK_RPSIS_PROJECT = BACK_plane.project_point(RPSIS)
+        BACK_RHIP_PROJECT = BACK_plane.project_point(RHIP)
+        BACK_coord.set_by_plane(BACK_plane, PELVIS, BACK_RHIP_PROJECT, sequence='zyx', axis_positive=True)
+        BACK_angles = JointAngles()
+        BACK_angles.ergo_name = {'flexion': 'flexion', 'abduction': 'L-flexion', 'rotation': 'rotation'}  #lateral flexion
+        BACK_angles.set_zero(zero_frame)
+        BACK_angles.get_flex_abd(BACK_coord, Point.vector(PELVIS, C7), plane_seq=['xy', 'yz'])
+        # BACK_angles.get_rot(RSHOULDER, LSHOULDER, RPSIS, LPSIS, flip_sign=1)
+        BACK_angles.get_rot(RSHOULDER, LSHOULDER, RHIP, LHIP, flip_sign=1)
+
+        return BACK_angles
+
     def pose2REBA(self, motion_pred):
          # Step 1: compute angles
         pred_xyz = recover_from_ric((motion_pred).float(), self.nb_joints).reshape(1, -1, self.nb_joints, 3)
@@ -118,6 +171,25 @@ class ErgoLoss(nn.Module):
         trunk_vec = pred_xyz[0, :, 12, :] - pred_xyz[0, :, 0, :]  # Root-->Neck_base
         y_pos_vec = torch.tensor([0, 1, 0]).repeat(batch_size, 1).float().cuda()  # same shape, with y +
         trunk_angle = self.anlge_3D(trunk_vec, y_pos_vec)  # trunk angle + - is the same score
+        zero_frame = [-90, 180, 180]
+        PELVIS = Point(pred_xyz[0, :, 0, :])
+        NECK_BASE =  Point(pred_xyz[0, :, 12, :])
+        RHIP = Point(pred_xyz[0, :, 2, :])
+        LHIP = Point(pred_xyz[0, :, 1, :])
+        LSHOULDER = Point(pred_xyz[0, :, 16, :])
+        RSHOULDER = Point(pred_xyz[0, :, 17, :])
+        BACK_plane = Plane()
+        BACK_plane.set_by_vector(PELVIS, Point.create_const_vector(y_pos_vec, examplePt=PELVIS), direction=1)
+        BACK_coord = CoordinateSystem3D()
+        BACK_RHIP_PROJECT = BACK_plane.project_point(RHIP)
+        BACK_coord.set_by_plane(BACK_plane, PELVIS, BACK_RHIP_PROJECT, sequence='zyx', axis_positive=True)
+        BACK_angles = JointAngles()
+        BACK_angles.ergo_name = {'flexion': 'flexion', 'abduction': 'L-flexion', 'rotation': 'rotation'}  # lateral flexion
+        BACK_angles.set_zero(zero_frame)
+        BACK_angles.get_flex_abd(BACK_coord, Point.vector(PELVIS, NECK_BASE), plane_seq=['xy', 'yz'])
+        # BACK_angles.get_rot(RSHOULDER, LSHOULDER, RPSIS, LPSIS, flip_sign=1)
+        BACK_angles.get_rot(RSHOULDER, LSHOULDER, RHIP, LHIP, flip_sign=1)
+
 
         ### upper_arm
         right_upper_arm_vec = pred_xyz[0, :, 19, :] - pred_xyz[0, :, 17, :]
@@ -162,8 +234,10 @@ class ErgoLoss(nn.Module):
         knee_angle = torch.max(right_knee_angle, left_knee_angle)
 
         # Step 2: joint scores
-        trunk = reba.get_trunk_score(trunk_angle, steepness=1)
-        upper_arm = reba.get_upper_arm_score(upper_arm_angle, steepness=1)
+        trunk = reba.get_trunk_score(BACK_angles.flexion, steepness=1)
+        upper_arm = reba.get_upper_arm_score(BACK_angles.rotation, steepness=1)
+
+        # upper_arm = reba.get_upper_arm_score(upper_arm_angle, steepness=1)
         lower_arm = reba.get_lower_arm_score(lower_arm_angle, steepness=1)
         leg = reba.get_leg_score(knee_angle, steepness=1)
 
