@@ -155,3 +155,5 @@ new.sh
 T2M_render
 render_final_t2m.py
 output_slurm/
+/output_slurm /eval_log_3-2.txt
+/output_slurm /eval_log_3_no_ergo-2.txt

@@ -91,11 +91,18 @@ def log_FID_reader(file_path):
 # ergo_file = "eval_log_3.txt"
 # og_file = "eval_log_3_no_ergo.txt"
 
-#### 2025-02-11 experiment
-num = 71
-ergo_file = f"/Users/leyangwen/Downloads/VQVAE_tests/VQVAE_{num}/eval_log.txt"
+# #### 2025-02-11 experiment
+# num = 71
+# ergo_file = f"/Users/leyangwen/Downloads/VQVAE_tests/VQVAE_{num}/eval_log.txt"
 dir_path = "output_slurm"
 og_file = "eval_log_3_no_ergo.txt"
+
+
+ergo_file = "/Users/leyangwen/Downloads/VQVAE_R3_3/VQVAE_R3_8/eval_log.txt"
+
+# 1e-9 too lttle
+# 1e-8 going down slowly
+# 1e-7 going down nicely
 
 
 # file_path = os.path.join(dir_path, ergo_file)
@@ -128,15 +135,15 @@ plt.show()
 
 #
 # ## recon loss over iter
-# plt.figure()
-# plt.plot(ergo_results[:, 0], ergo_results[:, 7], label="w. Ergo Loss")
-# plt.plot(og_results[:, 0], og_results[:, 7], label="Unmodified")
-# plt.xlabel("Iteration")
-# plt.ylabel("Reconstruction Loss")
-# plt.legend()
-# plt.ylim([0, 2])
-# plt.title("Reconstruction Loss over Iteration")
-# plt.show()
+plt.figure()
+plt.plot(ergo_results[:, 0], ergo_results[:, 7], label="w. Ergo Loss")
+plt.plot(og_results[:, 0], og_results[:, 7], label="Unmodified")
+plt.xlabel("Iteration")
+plt.ylabel("Reconstruction Loss")
+plt.legend()
+plt.ylim([0, 2])
+plt.title("Reconstruction Loss over Iteration")
+plt.show()
 #
 # ## total loss over iter
 # plt.figure()
@@ -171,17 +178,17 @@ plt.show()
 # plt.title("Velocity Loss over Iteration")
 # plt.show()
 #
-# ## ergo loss percentage over iter
-# plt.figure()
-# plt.plot(ergo_results[:, 0], ergo_results[:, 9], label="w. Ergo Loss")
-# plt.plot(og_results[:, 0], og_results[:, 9], label="Unmodified")
-# plt.xlabel("Iteration")
-# plt.ylabel("Ergo Loss Percentage")
-# plt.legend()
-# plt.ylim([0, 1])
-# plt.title("Ergo Loss Percentage over Iteration")
-# plt.show()
-#
+## ergo loss percentage over iter
+plt.figure()
+plt.plot(ergo_results[:, 0], ergo_results[:, 9], label="w. Ergo Loss")
+plt.plot(og_results[:, 0], og_results[:, 9], label="Unmodified")
+plt.xlabel("Iteration")
+plt.ylabel("Ergo Loss Percentage")
+plt.legend()
+plt.ylim([0, 1])
+plt.title("Ergo Loss Percentage over Iteration")
+plt.show()
+
 
 ## FID over iter
 plt.figure()
@@ -194,14 +201,14 @@ plt.legend()
 plt.title("FID over Iteration")
 plt.show()
 
-# # max_reba
-# plt.figure()
-# plt.plot(ergo_results[:, 0], ergo_results[:, 10], label="w. Ergo Loss")
-# plt.xlabel("Iteration")
-# plt.ylabel("Max REBA Score")
-# plt.legend()
-# plt.title("Max REBA over Iteration")
-# plt.show()
+# max_reba
+plt.figure()
+plt.plot(ergo_results[:, 0], ergo_results[:, 10], label="w. Ergo Loss")
+plt.xlabel("Iteration")
+plt.ylabel("Max REBA Score")
+plt.legend()
+plt.title("Max REBA over Iteration")
+plt.show()
 
 # ergo_weight
 plt.figure()
